@@ -1,4 +1,3 @@
-import sys
 import json
 import requests
 import folium
@@ -49,19 +48,15 @@ def build_libraries_from_url(url, name_pos, lat_long_pos):
     return libraries
 
 def optimize_coffee_shops(nb_shops=5):
-    # Fetch library locations
     libraries_url = 'https://data.cityofchicago.org/api/views/x8fc-8rcq/rows.json?accessType=DOWNLOAD'
     libraries = build_libraries_from_url(libraries_url, name_pos=10, lat_long_pos=17)
     print(f"There are {len(libraries)} public libraries in Chicago")
 
-    # Unique points
     libraries = set(libraries)
-    coffeeshop_locations = libraries  # Candidate coffee shop locations are the same as library locations
+    coffeeshop_locations = libraries
 
-    # Define optimization problem
     mdl = pulp.LpProblem("coffee_shops", pulp.LpMinimize)
 
-    # Decision variables
     BIGNUM = 999999999
     coffeeshop_vars = pulp.LpVariable.dicts("is_coffeeshop", coffeeshop_locations, cat="Binary")
     link_vars = {
@@ -70,7 +65,6 @@ def optimize_coffee_shops(nb_shops=5):
         for b in libraries
     }
 
-    # Constraints
     for c_loc in coffeeshop_locations:
         for b in libraries:
             if get_distance(c_loc, b) >= BIGNUM:
@@ -85,17 +79,14 @@ def optimize_coffee_shops(nb_shops=5):
 
     mdl += pulp.lpSum(coffeeshop_vars[c_loc] for c_loc in coffeeshop_locations) == nb_shops
 
-    # Objective: Minimize total distance
     mdl += pulp.lpSum(
         link_vars[c_loc, b] * get_distance(c_loc, b)
         for c_loc in coffeeshop_locations
         for b in libraries
     )
 
-    # Solve
     mdl.solve()
 
-    # Results
     total_distance = pulp.value(mdl.objective)
     open_coffeeshops = [c_loc for c_loc in coffeeshop_locations if pulp.value(coffeeshop_vars[c_loc]) == 1]
     edges = [
@@ -110,21 +101,44 @@ def optimize_coffee_shops(nb_shops=5):
     for c in open_coffeeshops:
         print("new coffee shop:", c)
 
-    # Visualization
-    map_osm = folium.Map(location=[41.878, -87.629], zoom_start=11)
-    for coffeeshop in open_coffeeshops:
-        folium.Marker(
-            [coffeeshop.y, coffeeshop.x], 
-            icon=folium.Icon(color="red", icon="info-sign")
-        ).add_to(map_osm)
+    return open_coffeeshops, edges, libraries
 
-    for b in libraries:
-        if b not in open_coffeeshops:
-            folium.Marker([b.y, b.x]).add_to(map_osm)
+open_coffeeshops, edges, libraries = optimize_coffee_shops()
 
-    for (c, b) in edges:
-        coordinates = [[c.y, c.x], [b.y, b.x]]
-        map_osm.add_child(folium.PolyLine(coordinates, color="#FF0000", weight=5))
+map_osm = folium.Map(location=[41.878, -87.629], zoom_start=11)
 
-    map_osm.save("coffee_shop_map.html")
+for coffeeshop in open_coffeeshops:
+    folium.Marker(
+        [coffeeshop.y, coffeeshop.x], 
+        icon=folium.Icon(color="red", icon="info-sign"),
+        popup=folium.Popup(f"Kafe: {coffeeshop.name}", parse_html=True)
+    ).add_to(map_osm)
 
+for b in libraries:
+    folium.Marker(
+        [b.y, b.x], 
+        icon=folium.Icon(color="blue", icon="book"),
+        popup=folium.Popup(f"Kütüphane: {b.name}", parse_html=True)
+    ).add_to(map_osm)
+
+for (c, b) in edges:
+    coordinates = [[c.y, c.x], [b.y, b.x]]
+    map_osm.add_child(folium.PolyLine(coordinates, color="#FF0000", weight=5))
+
+map_osm.save("coffee_shop_map.html")
+
+def find_library_by_name(name, libraries):
+    for lib in libraries:
+        if lib.name.startswith(f"K_{name}"):
+            return lib
+    return None
+
+
+addr1 = find_library_by_name("9525 S. Halsted St.", libraries) 
+addr2 = find_library_by_name("731 E. 63rd St.", libraries)
+
+if addr1 and addr2:
+    distance = get_distance(addr1, addr2)
+    print(f"{addr1} ile {addr2} arasındaki mesafe: {distance:.2f} mil")
+else:
+    print("Adreslerden biri bulunamadı.")
