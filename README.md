@@ -28,3 +28,14 @@ python main.py
 - geopy
 - pulp
 - requests
+
+
+
+Kütüphanelerin yanında, kahve dükkanlarının açılabileceği nüfus yoğunluğu, ulaşım hatları, alışveriş merkezleri gibi diğer faktörler de dikkate alınabilir.
+Bu faktörler veri analizi ve ağırlıklı optimizasyon yöntemi ile modele eklenebilir.
+
+
+
+Gerçek Dünya Verisi ile Doğrudan Çözüm:
+
+Kütüphanelerin yerine mevcut boş mağaza veya ticari alanların koordinatları kullanılabilir.
